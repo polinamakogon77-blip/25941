@@ -63,6 +63,11 @@ int main(int argc, char **argv) {
     int idx;
     scanf("%d", &idx);
     while (idx != 0) {
+        if (idx >= lines.len) {
+            printf("такой строки нет, введите правильный индекс\n");
+            continue;
+        }
+
         lseek(f, sizeof(char) * lines.list[idx - 1].offset, SEEK_SET);
 
         char buf[lines.list[idx - 1].len_line + 1];
