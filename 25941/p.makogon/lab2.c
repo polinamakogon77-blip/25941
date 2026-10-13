@@ -9,7 +9,7 @@ extern char *tzname[];
 
 int main()
 {
-    setenv("TZ", "America/Los_Angeles", 1);
+    setenv("TZ", "America/Los_Angeles", 1); 
     tzset();
 
     time_t now;
@@ -23,7 +23,7 @@ int main()
     printf("%d/%d/%02d %d:%02d %s\n",
         sp->tm_mon + 1, sp->tm_mday,
         sp->tm_year - 100, sp->tm_hour,
-        sp->tm_min, tzname[sp->tm_isdst]);
+        sp->tm_min, tzname[sp->tm_isdst]); // PST/PDT
     exit(0);
 
     return 0;

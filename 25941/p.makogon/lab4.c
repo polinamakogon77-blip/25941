@@ -51,7 +51,7 @@ int main() {
     char buf[SIZE];
     while (fgets(buf, SIZE, stdin) != NULL) {
         if (buf[0] == '.') break;
-
+        if (buf[0] == '\n') continue;
         popNode(&tail, &head, buf);
     } 
 
