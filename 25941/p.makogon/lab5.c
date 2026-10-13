@@ -66,6 +66,7 @@ int main(int argc, char **argv) {
         if (idx >= lines.len) {
             printf("такой строки нет, введите правильный индекс\n");
             scanf("%d", &idx);
+            printf("%d\n", idx);
             continue;
         }
 
