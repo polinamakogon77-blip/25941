@@ -27,10 +27,15 @@ void popNode(Node **tail, Node **head, char *buf) {
         *tail = new_node;
     }
 }
-
 void printNodes(Node *head) {
-    while (head != NULL) {
-        printf("%s", head->string);
+    while (head) {
+        for (const unsigned char *p = (const unsigned char *)head->string; *p; ++p) {
+            if (*p >= 0x20 && *p != 0x7F)
+                putchar(*p);
+            else
+                putchar('?');
+        }
+        putchar('\n');
         head = head->next_node;
     }
 }
@@ -49,12 +54,14 @@ int main() {
     Node *tail = NULL;
 
     char buf[SIZE];
+    printf("Чтобы завершить ввод, укажите . в начале строки\n");
     while (fgets(buf, SIZE, stdin) != NULL) {
         if (buf[0] == '.') break;
         if (buf[0] == '\n') continue;
         popNode(&tail, &head, buf);
     } 
 
+    printf("======== Было введено ========\n");
     printNodes(head);
     freeNodes(head);
 
