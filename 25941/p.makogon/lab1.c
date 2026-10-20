@@ -49,20 +49,31 @@ int main(int argc, char *argv[]) {
         }
         case 'u':
         {
-            struct rlimit limit;
-            getrlimit(RLIMIT_NPROC, &limit);
-            printf("curent limit = %ld; max limit = %ld\n", (long)limit.rlim_cur, (long)limit.rlim_max);
+            prctl_parms_t p;
+            if (prctl(PR_GET, "process.max-procs", &p) == 0) {
+                printf("current limit = %ld; max limit = %ld\n",
+                    (long)p.pr_val, (long)p.pr_limit);
+            } else {
+                perror("prctl");
+            }
             break;
         }
         case 'U':
         {
-            struct rlimit limit;
-            getrlimit(RLIMIT_NPROC, &limit);
+            prctl_parms_t p;
             long new_limit = checkArgument(optarg);
-            limit.rlim_cur = new_limit;
+            if (new_limit < 0) break;
 
-            if (new_limit >= 0 && setrlimit(RLIMIT_NPROC, &limit) == 0) printf("new limit = %ld", new_limit);
-            else printf("it wasn't possible to change the limit");
+            if (prctl(PR_GET, "process.max-procs", &p) != 0) {
+                perror("prctl get");
+                break;
+            }
+            p.pr_val = (rctl_qty_t)new_limit;  
+
+            if (prctl(PR_SET, "process.max-procs", &p) == 0)
+                printf("new limit = %ld\n", new_limit);
+            else
+                perror("prctl set");
             break;
         }
         case 'c':
