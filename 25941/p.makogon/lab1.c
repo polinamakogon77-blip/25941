@@ -1,26 +1,11 @@
-#include <rctl.h>
-#include <sys/types.h>
-#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <sys/resource.h>
 
 // ssh username@ccfit.nsu.ru
 // 00V1Qcey,Oe
 // ssh 10.4.0.68
-
-extern int prctl(int option, const char *name, void *parms);
-
-typedef struct {
-    uint64_t pr_val;
-    uint64_t pr_limit;
-    uint32_t pr_action;
-    uint32_t pr_recipient;
-    uint32_t pr_privilege;
-} prctl_parms_t;
-
-#define PR_GET 1
-#define PR_SET 2
 
 extern char **environ;
 
@@ -63,28 +48,26 @@ int main(int argc, char *argv[]) {
         }
         case 'u':
         {
-            prctl_parms_t p;
-            if (prctl(PR_GET, "process.max-procs", &p) == 0) {
-                printf("current limit = %llu; max limit = %llu\n",
-                    (unsigned long long)p.pr_val,
-                    (unsigned long long)p.pr_limit);
+            FILE *f = popen("ulimit -u", "r");
+            if (f) {
+                char buf[64];
+                if (fgets(buf, sizeof(buf), f))
+                    printf("current limit = %s", buf);
+                pclose(f);
             } else {
-                perror("prctl");
+                perror("popen");
             }
             break;
         }
         case 'U':
         {
+            struct rlimit limit;
+            getrlimit(RLIMIT_NPROC, &limit);
             long new_limit = checkArgument(optarg);
-            if (new_limit < 0) break;
+            limit.rlim_cur = new_limit;
 
-            prctl_parms_t p;
-            if (prctl(PR_GET, "process.max-procs", &p) != 0) { perror("prctl get"); break; }
-            p.pr_val = (uint64_t)new_limit;
-            if (prctl(PR_SET, "process.max-procs", &p) == 0)
-                printf("new limit = %ld\n", new_limit);
-            else
-                perror("prctl set");
+            if (new_limit >= 0 && setrlimit(RLIMIT_NPROC, &limit) == 0) printf("new limit = %ld", new_limit);
+            else printf("it wasn't possible to change the limit");
             break;
         }
         case 'c':
