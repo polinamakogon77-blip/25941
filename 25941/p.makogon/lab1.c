@@ -26,6 +26,24 @@ int main(int argc, char *argv[]) {
     char options[] = "ispuU:cC:dvV:";
     int opt;
 
+    if (argc == 1) {
+        fprintf(stderr,
+        "Использование: %s \n"
+        "Опции:\n"
+        "  -i             показать реальные и эффективные UID/GID\n"
+        "  -s             сделать процесс лидером новой группы процессов\n"
+        "  -p             показать PID, PPID и PGID\n"
+        "  -u             показать значение ulimit\n"
+        "  -U <bytes>     изменить значение ulimit\n"
+        "  -c             показать текущий размер core-файла\n"
+        "  -C <bytes>     изменить размер core-файла\n"
+        "  -d             показать текущий рабочий каталог\n"
+        "  -v             вывести все переменные окружения\n"
+        "  -V name=value  установить переменную окружения\n"
+        "  -h             показать эту справку\n"
+        "\n", progname);
+    }
+
     while ((opt=getopt(argc, argv, options)) != EOF) {
         switch (opt)
         {
@@ -64,20 +82,7 @@ int main(int argc, char *argv[]) {
             long new_limit = checkArgument(optarg);
             if (new_limit < 0) break;
 
-            char cmd[256];
-            snprintf(cmd, sizeof(cmd),
-                "prctl -n process.max-procs -v %ld -i process -s %d 2>&1",
-                new_limit, (int)getpid());
-    
-            FILE *f = popen(cmd, "r");
-            if (f) {
-                char buf[256];
-                while (fgets(buf, sizeof(buf), f))
-                    fputs(buf, stdout);
-                pclose(f);
-            } else {
-                perror("popen");
-            }
+            printf("нельзя менять максимальное к-во потоков для пользователя\n");
             break;
         }
         case 'c':
