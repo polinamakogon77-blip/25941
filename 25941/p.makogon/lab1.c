@@ -66,8 +66,9 @@ int main(int argc, char *argv[]) {
 
             char cmd[256];
             snprintf(cmd, sizeof(cmd),
-                    "prctl -n process.max-procs -v %ld -t privileged -i process -r %d 2>&1",
-                    new_limit, (int)getpid());
+                "prctl -n process.max-procs -v %ld -i process -s %d 2>&1",
+                new_limit, (int)getpid());
+    
             FILE *f = popen(cmd, "r");
             if (f) {
                 char buf[256];
