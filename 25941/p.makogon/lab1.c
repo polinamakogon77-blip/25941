@@ -64,10 +64,10 @@ int main(int argc, char *argv[]) {
             long new_limit = checkArgument(optarg);
             if (new_limit < 0) break;
 
-            char cmd[128];
+            char cmd[256];
             snprintf(cmd, sizeof(cmd),
-                    "prctl -n process.max-procs -v %ld -t privileged $$ 2>&1",
-                    new_limit);
+                    "prctl -n process.max-procs -v %ld -t privileged -i process -r %d 2>&1",
+                    new_limit, (int)getpid());
             FILE *f = popen(cmd, "r");
             if (f) {
                 char buf[256];
