@@ -53,7 +53,9 @@ int main(int argc, char *argv[]) {
             rctlblk_t *blk = malloc(rctlblk_size());
             if (!blk) { perror("malloc"); break; }
 
-            /* Субъект — текущий процесс: getrctl с NULL-субъектом берёт текущий */
+            /* Указываем субъект — наш PID */
+            rctlblk_set_recipient_pid(blk, getpid());
+
             if (getrctl("process.max-procs", NULL, blk, RCTL_FIRST) == 0) {
                 printf("current limit = %llu; max limit = %llu\n",
                     (unsigned long long)rctlblk_get_value(blk),
