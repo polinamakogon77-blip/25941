@@ -49,18 +49,18 @@ int main(int argc, char *argv[]) {
         case 'u':
         {
             struct rlimit limit;
-            getrlimit(RLIMIT_FSIZE, &limit);
+            getrlimit(RLIMIT_NPROC, &limit);
             printf("curent limit = %ld; max limit = %ld\n", (long)limit.rlim_cur, (long)limit.rlim_max);
             break;
         }
         case 'U':
         {
             struct rlimit limit;
-            getrlimit(RLIMIT_FSIZE, &limit);
+            getrlimit(RLIMIT_NPROC, &limit);
             long new_limit = checkArgument(optarg);
             limit.rlim_cur = new_limit;
 
-            if (new_limit >= 0 && setrlimit(RLIMIT_FSIZE, &limit) == 0) printf("new limit = %ld", new_limit);
+            if (new_limit >= 0 && setrlimit(RLIMIT_NPROC, &limit) == 0) printf("new limit = %ld", new_limit);
             else printf("it wasn't possible to change the limit");
             break;
         }
