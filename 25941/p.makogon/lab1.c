@@ -1,8 +1,8 @@
-#include <sys/procctl.h>
+#include <rctl.h>
 #include <sys/types.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <sys/resource.h>
 
 // ssh username@ccfit.nsu.ru
@@ -50,31 +50,38 @@ int main(int argc, char *argv[]) {
         }
         case 'u':
         {
-            prctl_parms_t p;
-            if (prctl(PR_GET, "process.max-procs", &p) == 0) {
-                printf("current limit = %ld; max limit = %ld\n",
-                    (long)p.pr_val, (long)p.pr_limit);
+            rctlblk_t *blk = malloc(rctlblk_size());
+            if (!blk) { perror("malloc"); break; }
+
+            /* Субъект — текущий процесс: getrctl с NULL-субъектом берёт текущий */
+            if (getrctl("process.max-procs", NULL, blk, RCTL_FIRST) == 0) {
+                printf("current limit = %llu; max limit = %llu\n",
+                    (unsigned long long)rctlblk_get_value(blk),
+                    (unsigned long long)rctlblk_get_enforced_value(blk));
             } else {
-                perror("prctl");
+                perror("getrctl");
             }
+            free(blk);
             break;
         }
         case 'U':
         {
-            prctl_parms_t p;
             long new_limit = checkArgument(optarg);
             if (new_limit < 0) break;
 
-            if (prctl(PR_GET, "process.max-procs", &p) != 0) {
-                perror("prctl get");
-                break;
-            }
-            p.pr_val = (rctl_qty_t)new_limit;  
+            rctlblk_t *blk = malloc(rctlblk_size());
+            if (!blk) { perror("malloc"); break; }
 
-            if (prctl(PR_SET, "process.max-procs", &p) == 0)
-                printf("new limit = %ld\n", new_limit);
-            else
-                perror("prctl set");
+            if (getrctl("process.max-procs", NULL, blk, RCTL_FIRST) == 0) {
+                rctlblk_set_value(blk, (rctl_qty_t)new_limit);
+                if (setrctl("process.max-procs", NULL, blk, RCTL_REPLACE) == 0)
+                    printf("new limit = %ld\n", new_limit);
+                else
+                    perror("setrctl");
+            } else {
+                perror("getrctl");
+            }
+            free(blk);
             break;
         }
         case 'c':
