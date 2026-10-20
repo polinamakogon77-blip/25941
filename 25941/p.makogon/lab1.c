@@ -9,6 +9,19 @@
 // 00V1Qcey,Oe
 // ssh 10.4.0.68
 
+extern int prctl(int option, const char *name, void *parms);
+
+typedef struct {
+    uint64_t pr_val;
+    uint64_t pr_limit;
+    uint32_t pr_action;
+    uint32_t pr_recipient;
+    uint32_t pr_privilege;
+} prctl_parms_t;
+
+#define PR_GET 1
+#define PR_SET 2
+
 extern char **environ;
 
 long checkArgument(char *arg) {
@@ -50,20 +63,14 @@ int main(int argc, char *argv[]) {
         }
         case 'u':
         {
-            rctlblk_t *blk = malloc(rctlblk_size());
-            if (!blk) { perror("malloc"); break; }
-
-            /* Указываем субъект — наш PID */
-            rctlblk_set_recipient_pid(blk, getpid());
-
-            if (getrctl("process.max-procs", NULL, blk, RCTL_FIRST) == 0) {
+            prctl_parms_t p;
+            if (prctl(PR_GET, "process.max-procs", &p) == 0) {
                 printf("current limit = %llu; max limit = %llu\n",
-                    (unsigned long long)rctlblk_get_value(blk),
-                    (unsigned long long)rctlblk_get_enforced_value(blk));
+                    (unsigned long long)p.pr_val,
+                    (unsigned long long)p.pr_limit);
             } else {
-                perror("getrctl");
+                perror("prctl");
             }
-            free(blk);
             break;
         }
         case 'U':
@@ -71,19 +78,13 @@ int main(int argc, char *argv[]) {
             long new_limit = checkArgument(optarg);
             if (new_limit < 0) break;
 
-            rctlblk_t *blk = malloc(rctlblk_size());
-            if (!blk) { perror("malloc"); break; }
-
-            if (getrctl("process.max-procs", NULL, blk, RCTL_FIRST) == 0) {
-                rctlblk_set_value(blk, (rctl_qty_t)new_limit);
-                if (setrctl("process.max-procs", NULL, blk, RCTL_REPLACE) == 0)
-                    printf("new limit = %ld\n", new_limit);
-                else
-                    perror("setrctl");
-            } else {
-                perror("getrctl");
-            }
-            free(blk);
+            prctl_parms_t p;
+            if (prctl(PR_GET, "process.max-procs", &p) != 0) { perror("prctl get"); break; }
+            p.pr_val = (uint64_t)new_limit;
+            if (prctl(PR_SET, "process.max-procs", &p) == 0)
+                printf("new limit = %ld\n", new_limit);
+            else
+                perror("prctl set");
             break;
         }
         case 'c':
