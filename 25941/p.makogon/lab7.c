@@ -130,7 +130,8 @@ int main(int argc, char **argv) {
                 return 0;
             }
         }
-
+        
+        first = 0;
         char line[128];
         if (!fgets(line, sizeof line, stdin)) {
             free(lines.list);
@@ -140,8 +141,7 @@ int main(int argc, char **argv) {
         }
         if (strchr(line, '\n') == NULL) {
             int c;
-            while ((c = getchar()) != '\n' && c != EOF)
-                ;
+            while ((c = getchar()) != '\n' && c != EOF);
         }
 
         char *end;
