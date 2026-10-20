@@ -27,8 +27,8 @@ int main(int argc, char *argv[]) {
     int opt;
 
     if (argc == 1) {
-        fprintf(stderr,
-        "Использование: %s \n"
+        printf(
+        "Использование:\n"
         "Опции:\n"
         "  -i             показать реальные и эффективные UID/GID\n"
         "  -s             сделать процесс лидером новой группы процессов\n"
@@ -41,7 +41,7 @@ int main(int argc, char *argv[]) {
         "  -v             вывести все переменные окружения\n"
         "  -V name=value  установить переменную окружения\n"
         "  -h             показать эту справку\n"
-        "\n", progname);
+        "\n");
     }
 
     while ((opt=getopt(argc, argv, options)) != EOF) {
