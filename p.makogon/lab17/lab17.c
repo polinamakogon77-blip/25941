@@ -31,7 +31,6 @@ int main(int argc, char *argv[]) {
     }
     atexit(func);
 
-    /* Берём реальные управляющие символы из настроек терминала */
     cc_t erase_char  = orig_termios.c_cc[VERASE];
     cc_t werase_char = orig_termios.c_cc[VWERASE];
     cc_t kill_char   = orig_termios.c_cc[VKILL];
@@ -39,6 +38,9 @@ int main(int argc, char *argv[]) {
 
     struct termios raw = orig_termios;
     raw.c_lflag &= ~(ECHO | ICANON);
+    raw.c_cc[VMIN] = 1;
+    raw.c_cc[VTIME] = 0;
+
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) {
         perror("tcsetattr");
         return 1;
@@ -51,7 +53,6 @@ int main(int argc, char *argv[]) {
         int len = (int)strlen(line);
 
         if (iscntrl((unsigned char)c) || !isprint((unsigned char)c)) {
-            /* ESC-последовательности (стрелки, Home/End, F-клавиши) — съедаем */
             if (c == '\x1b') {
                 char ch;
                 int in_seq = 0;
@@ -93,7 +94,6 @@ int main(int argc, char *argv[]) {
             }
             else if (c == (char)eof_char) {
                 if (line[0] == 0) exit(0);
-                /* иначе — просто игнорируем (как в исходной программе) */
             }
             else {
                 putchar('\a');
