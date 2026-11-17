@@ -9,6 +9,9 @@
 #include <grp.h>
 #include <time.h>
 #include <locale.h>
+#include <dirent.h>
+#include <errno.h>
+
 
 
 static char type_char(mode_t mode) {
@@ -23,74 +26,175 @@ static void perm_triplet(char *buf, mode_t mode, mode_t r, mode_t w, mode_t x) {
     buf[2] = (mode & x) ? 'x' : '-';
 }
 
-int main(int argc, char *argv[]) {
-    if (argc < 2) {
-        fprintf(stderr, "не указаны файлы\n", argv[0]);
-        return 1;
+
+static void print_entry(const char *path, const char *name,
+                        const struct stat *st) {
+    char perms[11];
+    perms[0] = type_char(st->st_mode);
+    perm_triplet(perms + 1, st->st_mode, S_IRUSR, S_IWUSR, S_IXUSR);
+    perm_triplet(perms + 4, st->st_mode, S_IRGRP, S_IWGRP, S_IXGRP);
+    perm_triplet(perms + 7, st->st_mode, S_IROTH, S_IWOTH, S_IXOTH);
+    perms[10] = '\0';
+
+    struct passwd *pw = getpwuid(st->st_uid);
+    struct group  *gr = getgrgid(st->st_gid);
+    const char *user  = pw ? pw->pw_name : "?";
+    const char *group = gr ? gr->gr_name : "?";
+
+    char sizebuf[32] = "";
+    if (S_ISREG(st->st_mode)) {
+        snprintf(sizebuf, sizeof(sizebuf), "%lld", (long long)st->st_size);
     }
 
-    setlocale(LC_TIME, ""); // включает локаль пользователя  
+    char timebuf[64];
+    struct tm *tm = localtime(&st->st_mtime);
+    if (tm) strftime(timebuf, sizeof(timebuf), "%b %e %H:%M", tm);
+    else strcpy(timebuf, "?");
 
-    for (int i = 1; i < argc; ++i) {
-        const char *path = argv[i];
-        struct stat st;
+    (void)path;   
 
-        // структура stat не была заполнена информацией о файле
-        if (lstat(path, &st) == -1) { 
-            perror(path);
+    printf("%-10s %3lu %-8s %-8s %8s %s %s\n",
+           perms,
+           (unsigned long)st->st_nlink,
+           user,
+           group,
+           sizebuf,
+           timebuf,
+           name);
+}
+
+
+
+static int cmp_names(const void *a, const void *b) {
+    const char *const *pa = a;
+    const char *const *pb = b;
+    return strcoll(*pa, *pb); 
+}
+
+
+static int list_dir(const char *dirpath, int show_all) {
+    DIR *d = opendir(dirpath);
+    if (!d) {
+        perror(dirpath);
+        return -1;
+    }
+
+    
+    char **names = NULL;
+    size_t count = 0, cap = 0;
+
+    struct dirent *de;
+    while ((de = readdir(d)) != NULL) {
+        if (!show_all && de->d_name[0] == '.')
+            continue;                       
+
+        if (count == cap) {
+            size_t newcap = cap ? cap * 2 : 32;
+            char **tmp = realloc(names, newcap * sizeof(*names));
+            if (!tmp) { perror("realloc"); break; }
+            names = tmp;
+            cap = newcap;
+        }
+        names[count] = strdup(de->d_name);
+        if (!names[count]) { perror("strdup"); break; }
+        count++;
+    }
+    closedir(d);
+
+   
+    qsort(names, count, sizeof(*names), cmp_names);
+
+
+    for (size_t i = 0; i < count; i++) {
+        char fullpath[4096];
+        if (snprintf(fullpath, sizeof(fullpath), "%s/%s", dirpath, names[i])
+                >= (int)sizeof(fullpath)) {
+            fprintf(stderr, "%s/%s: path too long\n", dirpath, names[i]);
+            free(names[i]);
             continue;
         }
 
-        // строим строку прав 
-        char perms[11];
-        perms[0] = type_char(st.st_mode);
-        perm_triplet(perms + 1, st.st_mode, S_IRUSR, S_IWUSR, S_IXUSR);
-        perm_triplet(perms + 4, st.st_mode, S_IRGRP, S_IWGRP, S_IXGRP);
-        perm_triplet(perms + 7, st.st_mode, S_IROTH, S_IWOTH, S_IXOTH);
-        perms[10] = '\0';
-
-        // ииена пользователя и группы
-        struct passwd *pw = getpwuid(st.st_uid);
-        struct group  *gr = getgrgid(st.st_gid);
-        const char *user  = pw ? pw->pw_name : "?";
-        const char *group = gr ? gr->gr_name : "?";
-
-        // размер обычного файла
-        char sizebuf[32] = "";
-        if (S_ISREG(st.st_mode)) {
-            snprintf(sizebuf, sizeof(sizebuf), "%lld", (long long)st.st_size);
+        struct stat st;
+        if (lstat(fullpath, &st) == -1) {
+            perror(fullpath);
+            free(names[i]);
+            continue;
         }
 
-        // время
-        char timebuf[64];
-        struct tm *tm = localtime(&st.st_mtime);
-        if (tm) strftime(timebuf, sizeof(timebuf), "%b %e %H:%M", tm);
-        else strcpy(timebuf, "?");
-
-        const char *name = strrchr(path, '/');
-        name = name ? name + 1 : path;
-
-        // имя без пути
-        if (*name == '\0' && path != name) {
-            const char *end = name - 1;    
-            while (end > path && *(end - 1) != '/') end--;
-            static char tmp[4096];
-            size_t n = (size_t)(name - 1 - end);
-            if (n >= sizeof(tmp)) n = sizeof(tmp) - 1;
-            memcpy(tmp, end, n);
-            tmp[n] = '\0';
-            name = tmp;
-        }
-
-        printf("%-10s %3lu %-8s %-8s %8s %s %s\n",
-               perms,
-               (unsigned long)st.st_nlink,
-               user,
-               group,
-               sizebuf,
-               timebuf,
-               name);
+        print_entry(fullpath, names[i], &st);
+        free(names[i]);
     }
 
+    free(names);
     return 0;
+}
+
+
+int main(int argc, char *argv[]) {
+    int show_all = 1;   
+
+
+    int argi = 1;
+    for (; argi < argc; argi++) {
+        const char *a = argv[argi];
+        if (a[0] != '-' || a[1] == '\0') break;   
+        if (strcmp(a, "--") == 0) { argi++; break; }
+
+        if (strcmp(a, "--all") == 0)  { show_all = 1; continue; }
+        if (strcmp(a, "--long") == 0) { continue; } 
+
+        for (const char *p = a + 1; *p; p++) {
+            switch (*p) {
+                case 'a': show_all = 1; break;
+                case 'l': break;
+                case 'd': break;
+                default:
+                    fprintf(stderr, "unknown option: -%c\n", *p);
+                    return 1;
+            }
+        }
+    }
+
+    setlocale(LC_TIME, "");
+    setlocale(LC_COLLATE, "");  
+
+    if (argi >= argc) {
+        static char *dot[] = { ".", NULL };
+        argv = dot;
+        argc = 1;
+        argi = 0;
+    }
+
+    int multiple = (argc - argi) > 1;
+    int had_error = 0;
+
+    for (int i = argi; i < argc; i++) {
+        const char *path = argv[i];
+        struct stat st;
+
+        if (lstat(path, &st) == -1) {
+            perror(path);
+            had_error = 1;
+            continue;
+        }
+
+        if (S_ISDIR(st.st_mode)) {
+            if (multiple)
+                printf("%s:\n", path);      
+
+            if (list_dir(path, show_all) == -1)
+                had_error = 1;
+
+            if (multiple && i != argc - 1)
+                putchar('\n');
+        }
+        else {
+          
+            const char *name = strrchr(path, '/');
+            name = name ? name + 1 : path;
+            print_entry(path, name, &st);
+        }
+    }
+
+    return had_error ? 1 : 0;
 }
